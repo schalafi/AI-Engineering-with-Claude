@@ -9,6 +9,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS, ModelKey } from "./models.js";
+import {TICKETS} from "./sample-tickets.js";
 import { calculateCost, logStats, displayComparison, ensureParsedResponse } from "./helpers.js";
 import { Message, Model } from "@anthropic-ai/sdk/resources";
 import dotenv from "dotenv";
@@ -32,14 +33,26 @@ async function callClaude(modelKey: ModelKey, system: string, userMessage: strin
   //  const rawResponse = await client.messages.create({ ... });
   //  const response = ensureParsedResponse(rawResponse as any); // Required for Vocareum
 
-  const ms = Date.now() - start;
-  const inputTokens = 0;
-  const outputTokens = 0;
+  const rawResponse = await client.messages.create(
+    {model: model.id as Model,
+     max_tokens: 4096,
+     system, 
+     messages:[{role: "user", content: userMessage}],
+    }
+  );
 
+  // Ensure response is parsed for Vocareum
+  const response  = ensureParsedResponse(rawResponse as any);
+
+  // get time to response 
+  const ms = Date.now() - start;
+  const inputTokens = response.usage.input_tokens;
+  const outputTokens = response.usage.output_tokens;
+  // Calculate cost
   const cost = calculateCost(inputTokens, outputTokens, model);
 
 
-  const text = "";
+  const text = response.content[0].type == "text" ? response.content[0].text : "";
 
   return { text, inputTokens, outputTokens, ms, cost };
 }
@@ -53,10 +66,10 @@ async function testHaiku() {
 
   // TODO: Define system prompt
   // Goal: Classify support ticket priority as: LOW, MEDIUM, HIGH, or URGENT
-  const system = `YOUR SYSTEM PROMPT HERE`;
+  const system = `You are a classification agent. Classify the support tickets by priority: LOW, MEDIUM, URGENT. The output must be only the class selected.`;
 
   // TODO: Call Claude with Haiku model
-  const result = null; // Replace with API call
+  const result = await callClaude("haiku",system, TICKETS.simple); // Replace with API call
 
   // TODO: Display results
   console.log(`Result: ${result.text}`);
@@ -79,11 +92,17 @@ async function testSonnet() {
   //   3. Key details
   //   4. Recommended action
   // Keep response concise
-  const system = `YOUR SYSTEM PROMPT HERE`;
+  const system = `You are a classification agent of suppor tickets.
+                  Your task is to analyze the ticket and extract:
+                  1. Priority level
+                  2. Issue category
+                  3. Key details
+                  4. Recommended action
+                  Produce a concise and brief answer.`;
 
   // TODO: Call Claude with Sonnet model
   // Use: callClaude("sonnet", system, TICKETS.moderate)
-  const result = null; // Replace with API call
+  const result = await callClaude("sonnet", system, TICKETS.moderate); // Replace with API call
 
   // TODO: Display results
   console.log(`Result:\n${result.text}`);
@@ -106,11 +125,17 @@ async function testOpus() {
   //   3. Impact assessment (business, technical)
   //   4. Prioritized action plan
   // Encourage thorough thinking
-  const system = `YOUR SYSTEM PROMPT HERE`;
+  const system = `You are a classification agent of suppor tickets.
+            Goal: Act as a senior support manager and provide:
+               1. Issue summary
+               2. Root cause hypothesis for each issue
+               3. Impact assessment (business, technical)
+               4. Prioritized action plan 
+              Think step by step and produce a concise answer.`;
 
   // TODO: Call Claude with Opus model
   // Use: callClaude("opus", system, TICKETS.complex)
-  const result = null; // Replace with API call
+  const result = await callClaude("opus", system, TICKETS.complex); // Replace with API call
 
   // TODO: Display results
   console.log(`Result:\n${result.text}`);
@@ -131,13 +156,20 @@ async function testCompare() {
   //   1. Priority (low/medium/high/urgent)
   //   2. Main issue
   //   3. One recommended action
-  const system = `YOUR SYSTEM PROMPT HERE`;
+  const system = `Analyze ticket and provide:
+     1. Priority (low/medium/high/urgent)
+     2. Main issue
+     3. One recommended action`;
 
   // TODO: Call all three models with the same task
   // Loop through: ["haiku", "sonnet", "opus"]
   // Store results in array with: { model, text, ms, inputTokens, outputTokens, cost }
   const results = [];
   // YOUR CODE HERE
+  for (const key of ["haiku", "sonnet", "opus"] as ModelKey[]){
+    const r = await callClaude(key, system, TICKETS.moderate);
+    results.push({model: MODELS[key].name, ...r});
+  }
 
   // TODO: Display comparison table
   displayComparison(results);
@@ -156,11 +188,10 @@ async function main() {
   console.log("  Scenario: Customer Support Ticket System");
   console.log("=".repeat(60));
 
-  // TODO: Uncomment each step as you complete it
-  // await testHaiku();
-  // await testSonnet();
-  // await testOpus();
-  // await testCompare();
+  await testHaiku();
+  await testSonnet();
+  await testOpus();
+  await testCompare();
 }
 
 main().catch(console.error);
