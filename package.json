@@ -2,6 +2,7 @@
   "name": "cd14715-claude-code-classroom",
   "private": true,
   "workspaces": [
+    "lesson-00-warm-up/exercise/starter",
     "lesson-01-model-selection/demo",
     "lesson-01-model-selection/exercise/starter",
     "lesson-01-model-selection/exercise/solution",
